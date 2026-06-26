@@ -179,6 +179,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   .mob-tabs::-webkit-scrollbar{display:none}
   .mob-tab{flex-shrink:0;padding:10px 14px;font-size:11px;font-weight:500;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
   .mob-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .mob-tf-bar{display:flex;gap:4px;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+  .mob-tf-btn{flex:1;padding:6px 4px;font-size:11px;font-family:var(--mono);font-weight:500;color:var(--muted);background:var(--elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;text-align:center}
+  .mob-tf-btn.active-tf{background:var(--accent);border-color:var(--accent);color:#fff}
   .mob-tf{display:flex;gap:3px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
   .mob-tf-btn{flex:1;padding:6px 4px;font-size:11px;font-family:var(--mono);font-weight:500;color:var(--muted);background:var(--elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;text-align:center}
   .mob-tf-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -215,7 +218,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
   <div class="mob-tabs" id="mobTabs">
     <button class="mob-tab active" onclick="switchMobPanel('chart')">Gráfico</button>
-    <button class="mob-tab" onclick="switchMobPanel('tf')">Timeframe</button>
     <button class="mob-tab" onclick="switchMobPanel('score')">Score</button>
     <button class="mob-tab" onclick="switchMobPanel('pa')">Price Action</button>
     <button class="mob-tab" onclick="switchMobPanel('niveis')">Níveis</button>
@@ -230,6 +232,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <span class="asset-sym" id="assetSym">--</span>
         <span class="asset-price" id="assetPrice">--</span>
         <span class="asset-chg" id="assetChg"></span>
+      </div>
+      <div class="mob-tf-bar" id="mobTfBar">
+        <button class="mob-tf-btn active" data-tf="1m">M1</button>
+        <button class="mob-tf-btn" data-tf="5m">M5</button>
+        <button class="mob-tf-btn active-tf" data-tf="15m">M15</button>
+        <button class="mob-tf-btn" data-tf="1h">H1</button>
+        <button class="mob-tf-btn" data-tf="4h">H4</button>
       </div>
       <div id="chartContainer"><div class="signal-overlay" id="signalOverlay"></div></div>
       <div class="ind-bar" id="indBar"></div>
@@ -294,6 +303,56 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 
   <div class="bottom" id="bottomBar"></div>
+
+  <!-- Modal de entrada -->
+  <div id="entryModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:360px;width:100%;overflow:hidden">
+      <div id="modalHeader" style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="modalDot" style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div>
+          <span id="modalTitle" style="font-size:15px;font-weight:600;color:var(--text)">Sinal de compra</span>
+        </div>
+        <button onclick="closeModal()" style="background:var(--elevated);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--muted);cursor:pointer;font-size:12px">✕ Fechar</button>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--elevated);border-radius:8px;border-left:3px solid var(--green)">
+          <span style="font-size:12px;color:var(--muted)">Ativo</span>
+          <span id="modalSymbol" style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text)">--</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--elevated);border-radius:8px">
+          <span style="font-size:12px;color:var(--muted)">Timeframe</span>
+          <span id="modalTf" style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text)">--</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--elevated);border-radius:8px">
+          <span style="font-size:12px;color:var(--muted)">Stark Score</span>
+          <span id="modalScore" style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--green)">--</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="padding:10px 8px;background:rgba(31,74,46,0.3);border:1px solid rgba(63,185,80,0.3);border-radius:8px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">ENTRADA</div>
+            <div id="modalEntry" style="font-family:var(--mono);font-size:12px;font-weight:500;color:var(--green)">--</div>
+          </div>
+          <div style="padding:10px 8px;background:rgba(13,62,98,0.3);border:1px solid rgba(55,138,221,0.3);border-radius:8px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">TAKE PROFIT</div>
+            <div id="modalTP" style="font-family:var(--mono);font-size:12px;font-weight:500;color:var(--blue)">--</div>
+          </div>
+          <div style="padding:10px 8px;background:rgba(74,29,29,0.3);border:1px solid rgba(248,81,73,0.3);border-radius:8px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">STOP LOSS</div>
+            <div id="modalSL" style="font-family:var(--mono);font-size:12px;font-weight:500;color:var(--red)">--</div>
+          </div>
+        </div>
+        <div style="padding:10px 12px;background:var(--elevated);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--muted)">Risco / Retorno</span>
+          <span id="modalRR" style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--green)">--</span>
+        </div>
+        <div style="padding:10px 12px;background:var(--elevated);border-radius:8px">
+          <div style="font-size:10px;color:var(--hint);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Confirmações</div>
+          <div id="modalConfirm" style="font-size:11px;color:var(--muted);line-height:1.7">--</div>
+        </div>
+        <div id="modalTime" style="font-size:10px;color:var(--hint);font-family:var(--mono);text-align:center"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -567,6 +626,7 @@ function renderScore(s,price){
     document.getElementById('sigTitle').textContent='Possível entrada de compra';document.getElementById('sigTitle').style.color='var(--green)';
     document.getElementById('sigBody').textContent=`Tendência, momentum e price action alinhados. ${s.structure.label}.`;document.getElementById('sigBody').style.color='#7EE2A8';
     plotLevels(entry,tp,sl,s.srLevels);
+    if(lastSignalType!=='buy'){lastSignalType='buy';showEntryModal('buy',s.score,currentSymbol,currentTf,entry,tp,sl,s.patterns,s.structure)}
   } else if(!isNeutral){
     arc.style.stroke='var(--red)';
     document.getElementById('scoreSig').textContent='Sinal de venda';document.getElementById('scoreSig').style.color='var(--red)';
@@ -576,6 +636,7 @@ function renderScore(s,price){
     document.getElementById('sigTitle').textContent='Pressão vendedora';document.getElementById('sigTitle').style.color='var(--red)';
     document.getElementById('sigBody').textContent=`Indicadores e estrutura apontam queda. ${s.structure.label}.`;document.getElementById('sigBody').style.color='#FF7B72';
     plotLevels(entry,tp,sl,s.srLevels);
+    if(lastSignalType!=='sell'){lastSignalType='sell';showEntryModal('sell',s.score,currentSymbol,currentTf,entry,tp,sl,s.patterns,s.structure)}
   } else {
     arc.style.stroke='var(--amber)';
     document.getElementById('scoreSig').textContent='Sinal neutro';document.getElementById('scoreSig').style.color='var(--amber)';
@@ -585,6 +646,7 @@ function renderScore(s,price){
     document.getElementById('sigTitle').textContent='Mercado indefinido';document.getElementById('sigTitle').style.color='var(--amber)';
     document.getElementById('sigBody').textContent='Sem confluência clara. Aguardar próximo sinal.';document.getElementById('sigBody').style.color='#C8961E';
     clearLines();
+    lastSignalType=null;
   }
 
   document.getElementById('rEntry').textContent=fmt(entry);
@@ -717,7 +779,7 @@ function isMobile(){return window.innerWidth<=700}
 
 function switchMobPanel(panel){
   document.querySelectorAll('.mob-tab').forEach((t,i)=>{
-    const panels=['chart','tf','score','pa','niveis','sinal'];
+    const panels=['chart','score','pa','niveis','sinal'];
     t.classList.toggle('active',panels[i]===panel);
   });
   const side=document.getElementById('sidePanel');
@@ -727,37 +789,7 @@ function switchMobPanel(panel){
     chartArea.style.display='flex';
     return;
   }
-  if(panel==='tf'){
-    side.classList.remove('active');
-    chartArea.style.display='flex';
-    // Mostrar TF picker inline
-    let tfPicker=document.getElementById('mobTfPicker');
-    if(!tfPicker){
-      tfPicker=document.createElement('div');
-      tfPicker.id='mobTfPicker';
-      tfPicker.className='mob-tf';
-      ['1m','5m','15m','1h','4h'].forEach(tf=>{
-        const b=document.createElement('button');
-        b.className='mob-tf-btn'+(tf===currentTf?' active':'');
-        b.textContent=tf.replace('m','M').replace('h','H');
-        b.onclick=()=>{
-          currentTf=tf;
-          document.querySelectorAll('.mob-tf-btn').forEach(x=>x.classList.remove('active'));
-          b.classList.add('active');
-          loadAndRender(currentSymbol,currentTf);
-          startRefresh(currentSymbol,currentTf);
-          switchMobPanel('chart');
-        };
-        tfPicker.appendChild(b);
-      });
-      document.getElementById('mainContent').insertBefore(tfPicker,chartArea);
-    }
-    tfPicker.style.display='flex';
-    return;
-  }
-  // Esconder TF picker
-  const tfPicker=document.getElementById('mobTfPicker');
-  if(tfPicker)tfPicker.style.display='none';
+
   side.classList.add('active');
   chartArea.style.display='none';
   document.querySelectorAll('.side .sec').forEach(sec=>{
@@ -771,8 +803,7 @@ window.addEventListener('resize',()=>{
     document.getElementById('sidePanel').classList.remove('active');
     document.getElementById('chartArea').style.display='flex';
     document.querySelectorAll('.side .sec').forEach(s=>s.style.display='');
-    const tfPicker=document.getElementById('mobTfPicker');
-    if(tfPicker)tfPicker.style.display='none';
+
   }
 });
 
@@ -807,6 +838,60 @@ document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))sugs.
 
 loadAndRender(currentSymbol,currentTf);
 startRefresh(currentSymbol,currentTf);
+
+/* ── MODAL DE ENTRADA ── */
+let lastSignalType = null;
+
+function showEntryModal(type, score, symbol, tf, entry, tp, sl, patterns, structure) {
+  const isBuy = type === 'buy';
+  const color = isBuy ? 'var(--green)' : 'var(--red)';
+  const title = isBuy ? 'Sinal de compra detectado' : 'Sinal de venda detectado';
+  document.getElementById('modalDot').style.background = color;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalTitle').style.color = color;
+  document.getElementById('modalSymbol').textContent = symbol;
+  document.getElementById('modalTf').textContent = tf.toUpperCase();
+  document.getElementById('modalScore').textContent = score + ' / 100';
+  document.getElementById('modalScore').style.color = color;
+  document.getElementById('modalEntry').textContent = fmt(entry);
+  document.getElementById('modalTP').textContent = fmt(tp);
+  document.getElementById('modalSL').textContent = fmt(sl);
+  const rr = (Math.abs(tp-entry)/Math.abs(sl-entry)).toFixed(1);
+  document.getElementById('modalRR').textContent = '1 : ' + rr;
+  const now = new Date();
+  document.getElementById('modalTime').textContent = 'Gerado às ' + now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ' · ' + tf.toUpperCase();
+  // Confirmações
+  const confirms = [];
+  if (patterns && patterns.length > 0) patterns.forEach(p => confirms.push('✓ ' + p.label));
+  if (structure && structure.label) confirms.push('✓ ' + structure.label);
+  confirms.push(isBuy ? '✓ Preço acima das EMAs' : '✓ Preço abaixo das EMAs');
+  confirms.push('✓ Score ' + (score >= 75 ? 'forte' : 'moderado') + ' (' + score + '/100)');
+  document.getElementById('modalConfirm').innerHTML = confirms.join('<br>');
+  const modal = document.getElementById('entryModal');
+  modal.style.display = 'flex';
+  // Auto fechar após 12s
+  setTimeout(() => closeModal(), 12000);
+}
+
+function closeModal() {
+  document.getElementById('entryModal').style.display = 'none';
+}
+
+document.getElementById('entryModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('entryModal')) closeModal();
+});
+
+/* ── MOB TF BAR ── */
+document.getElementById('mobTfBar').addEventListener('click', e => {
+  const btn = e.target.closest('.mob-tf-btn');
+  if (!btn) return;
+  document.querySelectorAll('.mob-tf-btn').forEach(b => b.classList.remove('active-tf'));
+  btn.classList.add('active-tf');
+  currentTf = btn.dataset.tf;
+  loadAndRender(currentSymbol, currentTf);
+  startRefresh(currentSymbol, currentTf);
+});
+
 </script>
 </body>
 </html>
