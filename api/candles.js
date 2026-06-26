@@ -2,26 +2,24 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { symbol = 'BTCUSDT', interval = '15m', limit = '300' } = req.query;
 
-  const tfMap = {'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240'};
-  const bybitTf = tfMap[interval] || '15';
+  const tfMap = {'1m':'1min','5m':'5min','15m':'15min','1h':'1h','4h':'4h'};
+  const tf = tfMap[interval] || '15min';
 
   try {
-    const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol.toUpperCase()}&interval=${bybitTf}&limit=${limit}`;
+    const url = `https://api.twelvedata.com/time_series?symbol=${symbol.replace('USDT','/USD')}&interval=${tf}&outputsize=${limit}&apikey=demo`;
     const r = await fetch(url);
     const text = await r.text();
     let data;
-    try { data = JSON.parse(text); } catch(e) { return res.status(500).json({ error: 'JSON parse error', raw: text.slice(0,500) }); }
-    if (data.retCode !== 0) return res.status(400).json({ error: data.retMsg, raw: data });
-    const candles = data.result.list
-      .map(k => ({
-        time: Math.floor(parseInt(k[0]) / 1000),
-        open: parseFloat(k[1]),
-        high: parseFloat(k[2]),
-        low: parseFloat(k[3]),
-        close: parseFloat(k[4]),
-        volume: parseFloat(k[5])
-      }))
-      .reverse();
+    try { data = JSON.parse(text); } catch(e) { return res.status(500).json({ error: 'parse error', raw: text.slice(0,300) }); }
+    if (data.status === 'error') return res.status(400).json({ error: data.message });
+    const candles = data.values.map(k => ({
+      time: Math.floor(new Date(k.datetime).getTime() / 1000),
+      open: parseFloat(k.open),
+      high: parseFloat(k.high),
+      low: parseFloat(k.low),
+      close: parseFloat(k.close),
+      volume: parseFloat(k.volume || 0)
+    })).reverse();
     res.status(200).json({ candles });
   } catch (e) {
     res.status(500).json({ error: e.message });
