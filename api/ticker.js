@@ -1,12 +1,14 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
   const { symbol = 'BTCUSDT' } = req.query;
   try {
-    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol.toUpperCase()}`;
+    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol.toUpperCase())}`;
     const r = await fetch(url);
-    if (!r.ok) throw new Error(`Binance error: ${r.status}`);
-    const data = await r.json();
+    const text = await r.text();
+    if (!r.ok) {
+      return res.status(400).json({ error: `Binance: ${text}` });
+    }
+    const data = JSON.parse(text);
     res.status(200).json({
       symbol: data.symbol,
       price: parseFloat(data.lastPrice),
@@ -17,6 +19,6 @@ export default async function handler(req, res) {
       volume: parseFloat(data.volume)
     });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 }
