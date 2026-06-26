@@ -1,15 +1,17 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const { symbol = 'BTCUSDT', interval = '15', limit = '300' } = req.query;
+  const { symbol = 'BTCUSDT', interval = '15m', limit = '300' } = req.query;
 
-  const tfMap = { '1m':'1','5m':'5','15m':'15','1h':'60','4h':'240' };
-  const bybitTf = tfMap[interval] || interval.replace('m','').replace('h','0');
+  const tfMap = {'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240'};
+  const bybitTf = tfMap[interval] || '15';
 
   try {
     const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol.toUpperCase()}&interval=${bybitTf}&limit=${limit}`;
     const r = await fetch(url);
-    const data = await r.json();
-    if (data.retCode !== 0) return res.status(400).json({ error: data.retMsg });
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { return res.status(500).json({ error: 'JSON parse error', raw: text.slice(0,500) }); }
+    if (data.retCode !== 0) return res.status(400).json({ error: data.retMsg, raw: data });
     const candles = data.result.list
       .map(k => ({
         time: Math.floor(parseInt(k[0]) / 1000),
