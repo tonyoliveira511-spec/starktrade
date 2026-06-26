@@ -134,11 +134,112 @@
   .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .mob-tabs { display: none; }
+  .mob-nav { display: none; }
+
   @media (max-width: 700px) {
-    .main { grid-template-columns: 1fr; }
-    .side { display: none; }
+    .topbar { padding: 0 10px; gap: 8px; height: 48px; }
+    .logo-name { font-size: 13px; }
+    .logo-icon { width: 26px; height: 26px; }
+    .search-wrap { max-width: 140px; }
+    .search-input { font-size: 12px; padding: 6px 8px 6px 28px; }
     .tf-group { display: none; }
+    .live-pill { padding: 3px 8px; }
+    .live-txt { display: none; }
+    .updated { display: none; }
+
+    .main {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      position: relative;
+    }
+
+    .chart-area {
+      border-right: none;
+    }
+
+    #chartContainer {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .ind-bar { display: none; }
+    .bottom { display: none; }
+
+    .side {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg);
+      z-index: 5;
+      overflow-y: auto;
+    }
+
+    .side.active { display: flex; }
+
+    .mob-tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .mob-tab {
+      flex: 1;
+      padding: 8px 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .mob-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .mob-nav {
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .mob-nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 8px 4px 10px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 10px;
+      transition: color 0.15s;
+    }
+
+    .mob-nav-btn svg { width: 20px; height: 20px; fill: currentColor; }
+    .mob-nav-btn.active { color: var(--accent); }
+
     .asset-price { font-size: 20px; }
+    .asset-bar { padding: 8px 12px 6px; }
+
+    .score-center { padding: 8px 0 4px; }
+    .ring-wrap { width: 80px; height: 80px; }
+    .ring-wrap svg { width: 80px; height: 80px; }
+    .ring-num { font-size: 24px; }
+
+    .sec { padding: 12px; }
+    .risk-row { padding: 7px 10px; }
   }
 </style>
 </head>
@@ -172,6 +273,13 @@
     </div>
   </header>
 
+  <div class="mob-tabs" id="mobTabs">
+    <button class="mob-tab active" data-panel="chart" onclick="switchMobPanel('chart')">Gráfico</button>
+    <button class="mob-tab" data-panel="score" onclick="switchMobPanel('score')">Score</button>
+    <button class="mob-tab" data-panel="niveis" onclick="switchMobPanel('niveis')">Níveis</button>
+    <button class="mob-tab" data-panel="sinal" onclick="switchMobPanel('sinal')">Sinal</button>
+  </div>
+
   <div class="loading" id="loading">
     <div class="spinner"></div>
     <span style="font-size:13px">Buscando dados...</span>
@@ -191,7 +299,7 @@
     </div>
 
     <aside class="side">
-      <div class="sec score-center">
+      <div class="sec score-center" data-panel="score">
         <div class="sec-lbl">Stark Score</div>
         <div class="ring-wrap">
           <svg viewBox="0 0 96 96">
@@ -206,7 +314,7 @@
         <div class="score-sub" id="scoreSub"></div>
       </div>
 
-      <div class="sec">
+      <div class="sec" data-panel="score">
         <div class="sec-lbl">Breakdown</div>
         <div class="bd-row"><span class="bd-name">Tendência</span><div class="bd-track"><div class="bd-fill" id="bTrend" style="width:0%;background:var(--hint)"></div></div><span class="bd-val nt" id="vTrend">--</span></div>
         <div class="bd-row"><span class="bd-name">Momentum</span><div class="bd-track"><div class="bd-fill" id="bMom" style="width:0%;background:var(--hint)"></div></div><span class="bd-val nt" id="vMom">--</span></div>
@@ -215,7 +323,7 @@
         <div class="bd-row"><span class="bd-name">Sup / Res</span><div class="bd-track"><div class="bd-fill" id="bSR" style="width:0%;background:var(--hint)"></div></div><span class="bd-val nt" id="vSR">--</span></div>
       </div>
 
-      <div class="sec">
+      <div class="sec" data-panel="niveis">
         <div class="sec-lbl">Níveis no gráfico</div>
         <div class="risk-card">
           <div class="risk-row entry">
@@ -237,7 +345,7 @@
         </div>
       </div>
 
-      <div class="sec">
+      <div class="sec" data-panel="sinal">
         <div class="sec-lbl">Sinal atual</div>
         <div class="sig-box" id="sigBox">
           <div class="sig-top">
@@ -249,7 +357,7 @@
         </div>
       </div>
 
-      <div class="sec">
+      <div class="sec" data-panel="sinal">
         <div class="sec-lbl">Últimos sinais</div>
         <div class="history-list" id="historyList"></div>
       </div>
@@ -616,6 +724,36 @@ document.addEventListener('click',e=>{ if(!e.target.closest('.search-wrap')) sug
 
 loadAndRender(currentSymbol,currentTf);
 startRefresh(currentSymbol,currentTf);
+
+function isMobile() { return window.innerWidth <= 700; }
+
+function switchMobPanel(panel) {
+  if (!isMobile()) return;
+  const side = document.querySelector('.side');
+  const chartArea = document.querySelector('.chart-area');
+  document.querySelectorAll('.mob-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.panel === panel);
+  });
+  if (panel === 'chart') {
+    side.classList.remove('active');
+    chartArea.style.display = 'flex';
+  } else {
+    side.classList.add('active');
+    chartArea.style.display = 'none';
+    document.querySelectorAll('.side .sec').forEach(sec => {
+      const p = sec.dataset.panel;
+      sec.style.display = (!p || p === panel) ? 'block' : 'none';
+    });
+  }
+}
+
+window.addEventListener('resize', () => {
+  if (!isMobile()) {
+    document.querySelector('.side').classList.remove('active');
+    document.querySelector('.chart-area').style.display = 'flex';
+    document.querySelectorAll('.side .sec').forEach(s => s.style.display = '');
+  }
+});
 </script>
 </body>
 </html>
