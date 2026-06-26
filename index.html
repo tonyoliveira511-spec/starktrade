@@ -578,15 +578,31 @@ function renderScore(s, price) {
   setBar('bSR','vSR',s.sr,12,11,6);
 }
 
-function updateChart(candles, s) {
+let chartInitialized = false;
+
+function updateChart(candles, s, silent) {
   if (!candleSeries) return;
-  candleSeries.setData(candles);
-  volumeSeries.setData(candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'#1D4A2E':'#4A1D1D'})));
-  if (s.ema9arr&&s.ema9arr.length) {
-    ema9Series.setData(candles.map((c,i)=>s.ema9arr[i]!=null?{time:c.time,value:s.ema9arr[i]}:null).filter(Boolean));
-    ema20Series.setData(candles.map((c,i)=>s.ema20arr[i]!=null?{time:c.time,value:s.ema20arr[i]}:null).filter(Boolean));
+  if (!chartInitialized || !silent) {
+    candleSeries.setData(candles);
+    volumeSeries.setData(candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'#1D4A2E':'#4A1D1D'})));
+    if (s.ema9arr&&s.ema9arr.length) {
+      ema9Series.setData(candles.map((c,i)=>s.ema9arr[i]!=null?{time:c.time,value:s.ema9arr[i]}:null).filter(Boolean));
+      ema20Series.setData(candles.map((c,i)=>s.ema20arr[i]!=null?{time:c.time,value:s.ema20arr[i]}:null).filter(Boolean));
+    }
+    if (!silent) chart.timeScale().fitContent();
+    chartInitialized = true;
+  } else {
+    const last = candles[candles.length-1];
+    const lastVol = {time:last.time,value:last.volume,color:last.close>=last.open?'#1D4A2E':'#4A1D1D'};
+    candleSeries.update(last);
+    volumeSeries.update(lastVol);
+    if (s.ema9arr&&s.ema9arr.length) {
+      const e9 = s.ema9arr[s.ema9arr.length-1];
+      const e20 = s.ema20arr[s.ema20arr.length-1];
+      if (e9!=null) ema9Series.update({time:last.time,value:e9});
+      if (e20!=null) ema20Series.update({time:last.time,value:e20});
+    }
   }
-  chart.timeScale().fitContent();
 }
 
 function renderChips(s, price) {
@@ -679,9 +695,8 @@ async function silentRefresh(symbol, tf) {
     chgEl.className='asset-chg '+(chgPct>=0?'up':'dn');
 
     const s=calcScore(cl,hi,lo,vl);
-    updateChart(candles,s);
+    updateChart(candles,s,true);
     renderScore(s,price);
-    renderChips(s,price);
     renderBottom(ticker);
     setLive(true);
   } catch(e) {
