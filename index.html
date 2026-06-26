@@ -514,18 +514,23 @@ function setLive(ok) {
   if (ok) { const n=new Date(); document.getElementById('updatedAt').textContent=`${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}:${n.getSeconds().toString().padStart(2,'0')}`; }
 }
 
+async function fetchAndProcess(symbol, tf) {
+  const [clRes,tkRes]=await Promise.all([
+    fetch(`/api/candles?symbol=${symbol}&interval=${tf}&limit=300`),
+    fetch(`/api/ticker?symbol=${symbol}`)
+  ]);
+  if (!clRes.ok) throw new Error('Ativo não encontrado');
+  const {candles}=await clRes.json();
+  const ticker=tkRes.ok?await tkRes.json():null;
+  return {candles, ticker};
+}
+
 async function loadAndRender(symbol, tf) {
   document.getElementById('loading').style.display='flex';
   document.getElementById('mainContent').style.display='none';
   setLive(false);
   try {
-    const [clRes,tkRes]=await Promise.all([
-      fetch(`/api/candles?symbol=${symbol}&interval=${tf}&limit=300`),
-      fetch(`/api/ticker?symbol=${symbol}`)
-    ]);
-    if (!clRes.ok) throw new Error('Ativo não encontrado');
-    const {candles}=await clRes.json();
-    const ticker=tkRes.ok?await tkRes.json():null;
+    const {candles, ticker}=await fetchAndProcess(symbol, tf);
     const cl=candles.map(c=>c.close),hi=candles.map(c=>c.high),lo=candles.map(c=>c.low),vl=candles.map(c=>c.volume);
     const price=cl[cl.length-1];
     const chgPct=ticker?ticker.changePct:0;
@@ -553,9 +558,32 @@ async function loadAndRender(symbol, tf) {
   }
 }
 
+async function silentRefresh(symbol, tf) {
+  try {
+    const {candles, ticker}=await fetchAndProcess(symbol, tf);
+    const cl=candles.map(c=>c.close),hi=candles.map(c=>c.high),lo=candles.map(c=>c.low),vl=candles.map(c=>c.volume);
+    const price=cl[cl.length-1];
+    const chgPct=ticker?ticker.changePct:0;
+
+    document.getElementById('assetPrice').textContent=fmt(price);
+    const chgEl=document.getElementById('assetChg');
+    chgEl.textContent=(chgPct>=0?'+':'')+chgPct.toFixed(2)+'%';
+    chgEl.className='asset-chg '+(chgPct>=0?'up':'dn');
+
+    const s=calcScore(cl,hi,lo,vl);
+    updateChart(candles,s);
+    renderScore(s,price);
+    renderChips(s,price);
+    renderBottom(ticker);
+    setLive(true);
+  } catch(e) {
+    setLive(false);
+  }
+}
+
 function startRefresh(symbol, tf) {
   if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer=setInterval(()=>loadAndRender(symbol,tf),15000);
+  refreshTimer=setInterval(()=>silentRefresh(symbol,tf),15000);
 }
 
 document.getElementById('tfGroup').addEventListener('click',e=>{
