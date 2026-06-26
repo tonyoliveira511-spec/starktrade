@@ -137,7 +137,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* History */
 .history-list{display:flex;flex-direction:column;gap:5px}
-.hist-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--elevated);border-radius:6px;border:1px solid var(--border)}
+.hist-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--elevated);border-radius:6px;border:1px solid var(--border);transition:border-color .15s}.hist-item:hover{border-color:var(--accent)}
 .hist-left{display:flex;align-items:center;gap:7px}
 .hist-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px}
 .hist-badge.buy{background:rgba(31,74,46,.5);color:var(--green)}
@@ -607,7 +607,8 @@ function renderSR(srLevels,price){
 }
 
 function renderScore(s,price){
-  const isBuy=s.score>=65,isNeutral=s.score>=40&&s.score<65;
+  const isBuy=s.score>=65, isSell=s.score<=39, isNeutral=!isBuy&&!isSell;
+  const quality=s.score>=75?'Forte':s.score>=65?'Moderada':s.score<=25?'Forte':s.score<=39?'Moderada':'';
   const arc=document.getElementById('scoreArc');
   arc.style.strokeDashoffset=Math.round(239-(s.score/100)*239);
   document.getElementById('scoreNum').textContent=s.score;
@@ -620,24 +621,25 @@ function renderScore(s,price){
   if(isBuy){
     arc.style.stroke='var(--green)';
     document.getElementById('scoreSig').textContent='Sinal de compra';document.getElementById('scoreSig').style.color='var(--green)';
-    document.getElementById('scoreSub').textContent='Alta confluência';
+    document.getElementById('scoreSub').textContent='Compra '+quality+' · Score '+s.score;
     document.getElementById('sigBox').className='sig-box';
     document.getElementById('sigDot').style.background='var(--green)';
     document.getElementById('sigTitle').textContent='Possível entrada de compra';document.getElementById('sigTitle').style.color='var(--green)';
     document.getElementById('sigBody').textContent=`Tendência, momentum e price action alinhados. ${s.structure.label}.`;document.getElementById('sigBody').style.color='#7EE2A8';
     plotLevels(entry,tp,sl,s.srLevels);
-    if(lastSignalType!=='buy'){lastSignalType='buy';showEntryModal('buy',s.score,currentSymbol,currentTf,entry,tp,sl,s.patterns,s.structure)}
-  } else if(!isNeutral){
+    if(lastSignalType!=='buy'){lastSignalType='buy';showEntryModal('buy',s.score,quality,currentSymbol,currentTf,entry,tp,sl,s.patterns,s.structure)}
+  } else if(isSell){
     arc.style.stroke='var(--red)';
     document.getElementById('scoreSig').textContent='Sinal de venda';document.getElementById('scoreSig').style.color='var(--red)';
-    document.getElementById('scoreSub').textContent='Tendência baixista';
+    document.getElementById('scoreSub').textContent='Venda '+quality+' · Score '+s.score;
     document.getElementById('sigBox').className='sig-box sell';
     document.getElementById('sigDot').style.background='var(--red)';
     document.getElementById('sigTitle').textContent='Pressão vendedora';document.getElementById('sigTitle').style.color='var(--red)';
     document.getElementById('sigBody').textContent=`Indicadores e estrutura apontam queda. ${s.structure.label}.`;document.getElementById('sigBody').style.color='#FF7B72';
     plotLevels(entry,tp,sl,s.srLevels);
-    if(lastSignalType!=='sell'){lastSignalType='sell';showEntryModal('sell',s.score,currentSymbol,currentTf,entry,tp,sl,s.patterns,s.structure)}
+    if(lastSignalType!=='sell'){lastSignalType='sell';showEntryModal('sell',s.score,quality,currentSymbol,currentTf,entry,tp,sl,s.patterns,s.structure)}
   } else {
+    lastSignalType=null;
     arc.style.stroke='var(--amber)';
     document.getElementById('scoreSig').textContent='Sinal neutro';document.getElementById('scoreSig').style.color='var(--amber)';
     document.getElementById('scoreSub').textContent='Aguardar confirmação';
@@ -646,7 +648,6 @@ function renderScore(s,price){
     document.getElementById('sigTitle').textContent='Mercado indefinido';document.getElementById('sigTitle').style.color='var(--amber)';
     document.getElementById('sigBody').textContent='Sem confluência clara. Aguardar próximo sinal.';document.getElementById('sigBody').style.color='#C8961E';
     clearLines();
-    lastSignalType=null;
   }
 
   document.getElementById('rEntry').textContent=fmt(entry);
@@ -663,9 +664,18 @@ function renderScore(s,price){
 
   // History
   if(!isNeutral){
-    signalHistory.unshift({score:s.score,type:isBuy?'buy':'sell',label:isBuy?'COMPRA':'VENDA',time:timeStr});
-    if(signalHistory.length>5)signalHistory.pop();
-    document.getElementById('historyList').innerHTML=signalHistory.map(h=>`<div class="hist-item"><div class="hist-left"><span class="hist-badge ${h.type}">${h.label}</span><span class="hist-score">Score ${h.score}</span></div><span class="hist-time">${h.time}</span></div>`).join('');
+    const newSig={
+      score:s.score, quality, type:isBuy?'buy':'sell', label:isBuy?'COMPRA':'VENDA',
+      time:timeStr, symbol:currentSymbol, tf:currentTf,
+      entry:fmt(entry), tp:fmt(tp), sl:fmt(sl),
+      rr:(Math.abs(tp-entry)/Math.abs(sl-entry)).toFixed(1),
+      patterns:s.patterns, structure:s.structure
+    };
+    if(!signalHistory.length||signalHistory[0].time!==timeStr){
+      signalHistory.unshift(newSig);
+      if(signalHistory.length>10)signalHistory.pop();
+    }
+    renderHistory();
   }
 
   setBar('bTrend','vTrend',s.trend,22,18,8);
@@ -839,10 +849,56 @@ document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))sugs.
 loadAndRender(currentSymbol,currentTf);
 startRefresh(currentSymbol,currentTf);
 
+
+/* ── HISTÓRICO DE SINAIS ── */
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!signalHistory.length){el.innerHTML='<div style="font-size:11px;color:var(--hint)">Nenhum sinal ainda</div>';return}
+  el.innerHTML=signalHistory.map((h,i)=>`
+    <div class="hist-item" onclick="openHistoryModal(${i})" style="cursor:pointer">
+      <div class="hist-left">
+        <span class="hist-badge ${h.type}">${h.label}</span>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span class="hist-score">Score ${h.score} · ${h.quality}</span>
+          <span style="font-size:10px;color:var(--hint);font-family:var(--mono)">${h.symbol} ${h.tf.toUpperCase()}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        <span class="hist-time">${h.time}</span>
+        <span style="font-size:10px;color:var(--accent)">Ver →</span>
+      </div>
+    </div>`).join('');
+}
+
+function openHistoryModal(index){
+  const h=signalHistory[index];
+  if(!h)return;
+  const color=h.type==='buy'?'var(--green)':'var(--red)';
+  document.getElementById('modalDot').style.background=color;
+  document.getElementById('modalTitle').textContent=(h.type==='buy'?'Sinal de compra':'Sinal de venda')+' · '+h.quality;
+  document.getElementById('modalTitle').style.color=color;
+  document.getElementById('modalSymbol').textContent=h.symbol;
+  document.getElementById('modalTf').textContent=h.tf.toUpperCase();
+  document.getElementById('modalScore').textContent=h.score+' / 100 · '+h.quality;
+  document.getElementById('modalScore').style.color=color;
+  document.getElementById('modalEntry').textContent=h.entry;
+  document.getElementById('modalTP').textContent=h.tp;
+  document.getElementById('modalSL').textContent=h.sl;
+  document.getElementById('modalRR').textContent='1 : '+h.rr;
+  const confirms=[];
+  if(h.patterns&&h.patterns.length)h.patterns.forEach(p=>confirms.push('✓ '+p.label));
+  if(h.structure&&h.structure.label)confirms.push('✓ '+h.structure.label);
+  confirms.push(h.type==='buy'?'✓ Preço acima das EMAs':'✓ Preço abaixo das EMAs');
+  confirms.push('✓ Score '+(h.score>=75?'forte':'moderado')+' ('+h.score+'/100)');
+  document.getElementById('modalConfirm').innerHTML=confirms.join('<br>');
+  document.getElementById('modalTime').textContent='Gerado às '+h.time+' · '+h.tf.toUpperCase();
+  document.getElementById('entryModal').style.display='flex';
+}
+
 /* ── MODAL DE ENTRADA ── */
 let lastSignalType = null;
 
-function showEntryModal(type, score, symbol, tf, entry, tp, sl, patterns, structure) {
+function showEntryModal(type, score, quality, symbol, tf, entry, tp, sl, patterns, structure) {
   const isBuy = type === 'buy';
   const color = isBuy ? 'var(--green)' : 'var(--red)';
   const title = isBuy ? 'Sinal de compra detectado' : 'Sinal de venda detectado';
@@ -851,7 +907,7 @@ function showEntryModal(type, score, symbol, tf, entry, tp, sl, patterns, struct
   document.getElementById('modalTitle').style.color = color;
   document.getElementById('modalSymbol').textContent = symbol;
   document.getElementById('modalTf').textContent = tf.toUpperCase();
-  document.getElementById('modalScore').textContent = score + ' / 100';
+  document.getElementById('modalScore').textContent = score + ' / 100 · ' + quality;
   document.getElementById('modalScore').style.color = color;
   document.getElementById('modalEntry').textContent = fmt(entry);
   document.getElementById('modalTP').textContent = fmt(tp);
